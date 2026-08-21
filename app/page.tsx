@@ -1,0 +1,26 @@
+'use client';
+import { useState } from 'react';
+
+const companies = [
+  { score:94, name:'東邦マテリアル株式会社', kana:'TOHO MATERIALS', place:'愛知県豊田市', people:'従業員 640名', signal:'新工場建設', date:'2時間前', tone:'red', reasons:['新工場建設を発表','設備投資 35億円を決定','24時間稼働の生産ラインを新設'], proposal:'新工場の死角を減らすAI監視カメラと、夜間の異常検知を組み合わせた導入プランをご提案。', contact:'生産技術部 / 設備保全責任者' },
+  { score:89, name:'北陸精機株式会社', kana:'HOKURIKU SEIKI', place:'石川県金沢市', people:'従業員 310名', signal:'設備投資拡大', date:'5時間前', tone:'orange', reasons:['第2工場の設備更新を発表','省人化プロジェクトを開始','夜間稼働率を40%へ拡大'], proposal:'既存設備を止めずに増設できるワイヤレス監視と、遠隔確認ダッシュボードをご提案。', contact:'製造本部 / DX推進担当' },
+  { score:86, name:'関東ロジスティクス株式会社', kana:'KANTO LOGISTICS', place:'埼玉県川越市', people:'従業員 890名', signal:'新拠点開設', date:'昨日', tone:'yellow', reasons:['大型物流センターを新設','庫内作業の自動化を推進','2027年1月の稼働を予定'], proposal:'搬入口・保管エリアの一元監視と、侵入・滞留を自動通知する安全管理パッケージをご提案。', contact:'物流企画部 / センター長' },
+  { score:82, name:'大和フーズ株式会社', kana:'YAMATO FOODS', place:'大阪府堺市', people:'従業員 470名', signal:'品質管理強化', date:'2日前', tone:'green', reasons:['食品事故防止の新方針を公表','製造ラインを3本増設','衛生監査を四半期ごとに実施'], proposal:'録画確認を短縮する工程別検索と、衛生区域への入退室検知をご提案。', contact:'品質保証部 / 工場管理責任者' },
+  { score:78, name:'西日本パーツ株式会社', kana:'WEST JAPAN PARTS', place:'広島県福山市', people:'従業員 225名', signal:'補助金採択', date:'3日前', tone:'blue', reasons:['省力化投資補助金に採択','倉庫管理システムを刷新','設備予算 1.2億円を確保'], proposal:'補助金予算に合わせた段階導入と、倉庫・製造現場を横断する監視プランをご提案。', contact:'経営企画室 / 情報システム担当' },
+];
+
+export default function Home(){
+ const [active,setActive]=useState(0), [query,setQuery]=useState('明日電話すべき会社を5社出してください'), [loading,setLoading]=useState(false), [toast,setToast]=useState(''); const company=companies[active];
+ const analyze=()=>{setLoading(true);setTimeout(()=>{setLoading(false);setActive(0);setToast('1,284社から有望企業を抽出しました');setTimeout(()=>setToast(''),2600)},900)};
+ return <main className="app-shell">
+  <aside className="sidebar"><div className="brand"><span>S</span><b>営業ナビ</b></div><nav>{[['⌂','ホーム'],['◎','有望企業'],['⌕','企業検索'],['▤','アプローチリスト']].map((n,i)=><button key={n[1]} className={i===0?'active':''}><i>{n[0]}</i>{n[1]}</button>)}<p>管理</p>{[['⌁','自社サービス'],['♙','チーム'],['⚙','設定']].map(n=><button key={n[1]}><i>{n[0]}</i>{n[1]}</button>)}</nav><div className="plan"><em>PRO PLAN</em><b>分析枠 72%</b><span><i/></span><small>3,600 / 5,000社</small></div><div className="user"><span>YK</span><div><b>山田 健太</b><small>営業部 マネージャー</small></div><strong>⋮</strong></div></aside>
+  <section className="workspace"><header><div><h1>おはようございます、山田さん</h1><p>今日の営業チャンスをAIが見つけました。</p></div><div className="actions"><button>♧<i/></button><button>＋ 自社サービスを編集</button></div></header>
+   <div className="ask"><div className="orb">✦</div><div className="askcopy"><b>AI営業アシスタント</b><small>何をお探しですか？</small></div><div className="search"><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&analyze()} aria-label="AIへの依頼"/><button onClick={analyze} disabled={loading}>{loading?'…':'→'}</button></div><div className="chips"><small>例：</small><button onClick={()=>setQuery('今週、設備投資を発表した企業')}>今週、設備投資を発表した企業</button><button onClick={()=>setQuery('関東の製造業で採用を強化中')}>関東の製造業で採用を強化中</button></div></div>
+   <div className="stats">{[['✦','本日の新着チャンス','12社','前日比 +4社','purple'],['↗','高優先度企業','28社','スコア 80以上','green'],['◷','今週のアプローチ','7件','目標まであと3件','orange']].map(s=><div key={s[1]}><span className={s[4]}>{s[0]}</span><p>{s[1]}<b>{s[2]}</b><small>{s[3]}</small></p></div>)}</div>
+   <div className="sectionhead"><div><h2>明日、電話すべき会社</h2><p>AIが公開情報を分析し、受注確度の高い順に並べています</p></div><button onClick={analyze}>↻ 最新情報に更新</button></div>
+   <div className="grid"><div className="list">{companies.map((c,i)=><button key={c.name} className={`company ${active===i?'selected':''}`} onClick={()=>setActive(i)}><span className={`score ${c.tone}`}><b>{c.score}</b><small>/100</small></span><span className="companymain"><small>{c.kana}</small><b>{c.name}</b><em>⌖ {c.place}　·　{c.people}</em></span><span className="signal"><b className={c.tone}>● {c.signal}</b><small>{c.date}</small></span><strong>›</strong></button>)}</div>
+    <aside className="detail"><div className="detailtop"><span className={`bigscore ${company.tone}`}><b>{company.score}</b><small>/100</small></span><div><small>{company.kana}</small><h3>{company.name}</h3><p>⌖ {company.place}　·　{company.people}</p></div><button>×</button></div><section><h4><span>✦</span> AIが注目した理由</h4><ul>{company.reasons.map((r,i)=><li key={r}><i>{i+1}</i><span>{r}<small>{['プレスリリース','ニュース','企業サイト'][i]}</small></span></li>)}</ul></section><div className="proposal"><h4>提案すべき内容</h4><p>{company.proposal}</p><div><span>推奨アプローチ先</span><b>{company.contact}</b></div></div><div className="talk"><div><h4>電話トーク例</h4><button onClick={()=>{navigator.clipboard?.writeText(company.proposal);setToast('トーク例をコピーしました')}}>コピー</button></div><p>「新しい取り組みに関する発表を拝見し、お電話しました。弊社では製造現場向けに、<mark>{company.proposal.slice(0,31)}</mark>…」</p></div><div className="detailactions"><button onClick={()=>setToast('アプローチリストに追加しました')}>＋ リストに追加</button><button onClick={()=>setToast('担当者候補を検索しています')}>担当者を探す →</button></div></aside>
+   </div>
+  </section>{toast&&<div className="toast">✓ {toast}</div>}
+ </main>
+}

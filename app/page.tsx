@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-type View = 'home' | 'prospects' | 'search' | 'approach';
+type View = 'home' | 'signals' | 'prospects' | 'search' | 'approach';
 type Stage = '未対応' | '連絡済み' | '商談化';
 
 const companies = [
@@ -14,7 +14,7 @@ const companies = [
 ];
 
 const initialProduct={name:'工場向けAI監視カメラ',category:'セキュリティ・IoT',target:'製造業、物流業、食品工場',features:'AIによる異常検知、24時間遠隔監視、既存設備への後付け対応',problems:'工場内の事故防止、夜間の省人化、設備異常の早期発見'};
-const titles:Record<View,[string,string]>={home:['おはようございます、山田さん','今日の営業チャンスをAIが見つけました。'],prospects:['有望企業','AIスコアと最新シグナルから優先順位を確認できます。'],search:['企業検索','企業名・業種・地域から営業候補を検索できます。'],approach:['アプローチリスト','追加した営業先の対応状況を管理できます。']};
+const titles:Record<View,[string,string]>={home:['おはようございます、山田さん','今日の営業チャンスをAIが見つけました。'],signals:['営業シグナル','企業の変化を捉え、最適な営業タイミングを確認できます。'],prospects:['有望企業','AIスコアと最新シグナルから優先順位を確認できます。'],search:['企業検索','企業名・業種・地域から営業候補を検索できます。'],approach:['アプローチリスト','追加した営業先の対応状況を管理できます。']};
 
 export default function Home(){
   const [view,setView]=useState<View>('home');
@@ -28,13 +28,17 @@ export default function Home(){
   const [productOpen,setProductOpen]=useState(false);
   const [product,setProduct]=useState(initialProduct);
   const [approach,setApproach]=useState<Record<string,Stage>>({});
+  const [readSignals,setReadSignals]=useState<string[]>([]);
+  const [signalFilter,setSignalFilter]=useState<'すべて'|'未読'>('すべて');
   const company=companies[active];
 
   useEffect(()=>{
     const saved=localStorage.getItem('eigyo-navi-product');
     const list=localStorage.getItem('eigyo-navi-approach');
+    const reads=localStorage.getItem('eigyo-navi-read-signals');
     if(saved)setProduct({...initialProduct,...JSON.parse(saved)});
     if(list)setApproach(JSON.parse(list));
+    if(reads)setReadSignals(JSON.parse(reads));
   },[]);
   const notify=(message:string)=>{setToast(message);window.setTimeout(()=>setToast(''),2800)};
   const persistApproach=(next:Record<string,Stage>)=>{setApproach(next);localStorage.setItem('eigyo-navi-approach',JSON.stringify(next))};
@@ -42,10 +46,13 @@ export default function Home(){
   const removeApproach=(name:string)=>{const next={...approach};delete next[name];persistApproach(next);notify('リストから削除しました')};
   const saveProduct=()=>{localStorage.setItem('eigyo-navi-product',JSON.stringify(product));setProductOpen(false);notify('自社製品を登録しました。AI分析に反映されます')};
   const analyze=()=>{setLoading(true);window.setTimeout(()=>{setLoading(false);setView('prospects');setMinScore(0);notify('1,284社から有望企業を抽出しました')},850)};
+  const markRead=(name:string)=>{const next=Array.from(new Set([...readSignals,name]));setReadSignals(next);localStorage.setItem('eigyo-navi-read-signals',JSON.stringify(next))};
 
   const filtered=useMemo(()=>companies.filter(c=>(industry==='すべて'||c.industry===industry)&&c.score>=minScore&&(view!=='search'||!search||[c.name,c.place,c.industry,c.signal].some(v=>v.includes(search)))),[industry,minScore,search,view]);
   const listed=companies.filter(c=>approach[c.name]);
-  const nav:[View,string,string][]=[['home','⌂','ホーム'],['prospects','◎','有望企業'],['search','⌕','企業検索'],['approach','▤','アプローチリスト']];
+  const unread=companies.filter(c=>!readSignals.includes(c.name)).length;
+  const signalItems=signalFilter==='未読'?companies.filter(c=>!readSignals.includes(c.name)):companies;
+  const nav:[View,string,string][]=[['home','⌂','ホーム'],['signals','⚡','営業シグナル'],['prospects','◎','有望企業'],['search','⌕','企業検索'],['approach','▤','アプローチリスト']];
 
   const selectCompany=(name:string)=>{const index=companies.findIndex(c=>c.name===name);setActive(index)};
 
@@ -53,18 +60,18 @@ export default function Home(){
     <aside className="sidebar">
       <div className="brand"><span>S</span><b>営業ナビ</b></div>
       <nav>
-        {nav.map(([id,icon,label])=><button key={id} className={view===id?'active':''} onClick={()=>setView(id)}><i>{icon}</i>{label}{id==='approach'&&listed.length>0?<em>{listed.length}</em>:null}</button>)}
+        {nav.map(([id,icon,label])=><button key={id} className={view===id?'active':''} onClick={()=>setView(id)}><i>{icon}</i>{label}{id==='approach'&&listed.length>0?<em>{listed.length}</em>:id==='signals'&&unread>0?<em>{unread}</em>:null}</button>)}
         <p>管理</p>
         <button onClick={()=>setProductOpen(true)}><i>⌁</i>自社サービス</button>
-        <button onClick={()=>notify('チーム管理は上位プランで利用できます')}><i>♙</i>チーム</button>
+        <button onClick={()=>notify('チームメンバー3名が利用中です')}><i>♙</i>チーム</button>
         <button onClick={()=>notify('設定を保存しました')}><i>⚙</i>設定</button>
       </nav>
-      <div className="plan"><em>PRO PLAN</em><b>分析枠 72%</b><span><i/></span><small>3,600 / 5,000社</small></div>
+      <div className="plan"><em>利用状況</em><b>企業分析 72%</b><span><i/></span><small>3,600 / 5,000社</small></div>
       <div className="user"><span>YK</span><div><b>山田 健太</b><small>営業部 マネージャー</small></div><strong>⋮</strong></div>
     </aside>
 
     <section className="workspace">
-      <header><div><h1>{titles[view][0]}</h1><p>{titles[view][1]}</p></div><div className="actions"><button onClick={()=>notify('新着の営業シグナルは3件です')}>♧<i/></button><button onClick={()=>setProductOpen(true)}>＋ 自社サービスを編集</button></div></header>
+      <header><div><h1>{titles[view][0]}</h1><p>{titles[view][1]}</p></div><div className="actions"><button onClick={()=>setView('signals')}>♧{unread>0&&<i/>}</button><button onClick={()=>setProductOpen(true)}>＋ 自社サービスを編集</button></div></header>
 
       {view==='home'&&<>
         <div className="ask"><div className="orb">✦</div><div className="askcopy"><b>AI営業アシスタント</b><small>{product.name}に最適な企業を検索</small></div><div className="search"><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&analyze()} aria-label="AIへの依頼"/><button onClick={analyze} disabled={loading}>{loading?'…':'→'}</button></div><div className="chips"><small>例：</small><button onClick={()=>setQuery('今週、設備投資を発表した企業')}>今週、設備投資を発表した企業</button><button onClick={()=>setQuery('関東の製造業で採用を強化中')}>関東の製造業で採用を強化中</button></div></div>
@@ -73,6 +80,11 @@ export default function Home(){
         </div>
         <div className="sectionhead"><div><h2>明日、電話すべき会社</h2><p>AIが公開情報を分析し、受注確度の高い順に並べています</p></div><button onClick={analyze}>↻ 最新情報に更新</button></div>
         <CompanyWorkspace items={companies} active={active} onSelect={selectCompany} company={company} approach={approach} onAdd={addApproach} notify={notify}/>
+      </>}
+
+      {view==='signals'&&<>
+        <div className="signaltoolbar"><div><button className={signalFilter==='すべて'?'active':''} onClick={()=>setSignalFilter('すべて')}>すべて <b>{companies.length}</b></button><button className={signalFilter==='未読'?'active':''} onClick={()=>setSignalFilter('未読')}>未読 <b>{unread}</b></button></div><button onClick={()=>{const all=companies.map(c=>c.name);setReadSignals(all);localStorage.setItem('eigyo-navi-read-signals',JSON.stringify(all));notify('すべて既読にしました')}}>✓ すべて既読にする</button></div>
+        <div className="signalfeed">{signalItems.length?signalItems.map(c=><article key={c.name} className={readSignals.includes(c.name)?'read':''}><button className="signalbody" onClick={()=>markRead(c.name)}><span className={`signalflash ${c.tone}`}>⚡</span><div><div className="signalmeta"><b>{c.signal}</b><small>{c.date} · {c.industry}</small></div><h2>{c.name}</h2><p>{c.reasons[0]}。{c.reasons[1]}。営業ニーズが高まっている可能性があります。</p><em>AI営業スコア {c.score}/100</em></div>{!readSignals.includes(c.name)&&<i/>}</button><div className="signalactions"><button onClick={()=>{markRead(c.name);selectCompany(c.name);setView('prospects')}}>企業詳細を見る →</button><button className={approach[c.name]?'added':''} onClick={()=>addApproach(c.name)}>{approach[c.name]?'✓ リスト追加済み':'＋ アプローチリストに追加'}</button></div></article>):<div className="empty"><span>✓</span><h2>未読シグナルはありません</h2><p>新しい企業の動きが見つかると、ここに自動で追加されます。</p><button onClick={()=>setSignalFilter('すべて')}>すべて表示</button></div>}</div>
       </>}
 
       {view==='prospects'&&<>

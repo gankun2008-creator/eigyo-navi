@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-type View = 'home' | 'signals' | 'prospects' | 'search' | 'approach';
+type View = 'home' | 'signals' | 'prospects' | 'search' | 'approach' | 'team' | 'settings';
 type Stage = '未対応' | '連絡済み' | '商談化';
+type Member = {id:number,name:string,email:string,role:'管理者'|'メンバー',status:'利用中'|'招待中'};
 
 const companies = [
   { score:94,name:'東邦マテリアル株式会社',kana:'TOHO MATERIALS',place:'愛知県豊田市',industry:'製造業',people:'従業員 640名',signal:'新工場建設',date:'2時間前',tone:'red',revenue:480,units:12,probability:78,reasons:['新工場建設を発表','設備投資 35億円を決定','24時間稼働の生産ラインを新設'],proposal:'新工場の死角を減らすAI監視カメラと、夜間の異常検知を組み合わせた導入プランをご提案。',contact:'生産技術部 / 設備保全責任者'},
@@ -14,7 +15,9 @@ const companies = [
 ];
 
 const initialProduct={name:'工場向けAI監視カメラ',category:'セキュリティ・IoT',target:'製造業、物流業、食品工場',features:'AIによる異常検知、24時間遠隔監視、既存設備への後付け対応',problems:'工場内の事故防止、夜間の省人化、設備異常の早期発見'};
-const titles:Record<View,[string,string]>={home:['おはようございます、山田さん','今日の営業チャンスをAIが見つけました。'],signals:['営業シグナル','企業の変化を捉え、最適な営業タイミングを確認できます。'],prospects:['有望企業','AIスコアと最新シグナルから優先順位を確認できます。'],search:['企業検索','企業名・業種・地域から営業候補を検索できます。'],approach:['アプローチリスト','追加した営業先の対応状況を管理できます。']};
+const initialMembers:Member[]=[{id:1,name:'山田 健太',email:'yamada@example.jp',role:'管理者',status:'利用中'},{id:2,name:'佐藤 美咲',email:'sato@example.jp',role:'メンバー',status:'利用中'},{id:3,name:'鈴木 大輔',email:'suzuki@example.jp',role:'メンバー',status:'利用中'}];
+const initialSettings={emailSignals:true,browserSignals:true,dailyReport:true,approachReminder:false,frequency:'毎日 8:00',score:'80',region:'全国'};
+const titles:Record<View,[string,string]>={home:['おはようございます、山田さん','今日の営業チャンスをAIが見つけました。'],signals:['営業シグナル','企業の変化を捉え、最適な営業タイミングを確認できます。'],prospects:['有望企業','AIスコアと最新シグナルから優先順位を確認できます。'],search:['企業検索','企業名・業種・地域から営業候補を検索できます。'],approach:['アプローチリスト','追加した営業先の対応状況を管理できます。'],team:['チーム管理','メンバーの招待と権限を管理できます。'],settings:['設定','AI分析と通知の条件を設定できます。']};
 
 export default function Home(){
   const [view,setView]=useState<View>('home');
@@ -30,15 +33,22 @@ export default function Home(){
   const [approach,setApproach]=useState<Record<string,Stage>>({});
   const [readSignals,setReadSignals]=useState<string[]>([]);
   const [signalFilter,setSignalFilter]=useState<'すべて'|'未読'>('すべて');
+  const [members,setMembers]=useState<Member[]>(initialMembers);
+  const [invite,setInvite]=useState({name:'',email:'',role:'メンバー' as Member['role']});
+  const [settings,setSettings]=useState(initialSettings);
   const company=companies[active];
 
   useEffect(()=>{
     const saved=localStorage.getItem('eigyo-navi-product');
     const list=localStorage.getItem('eigyo-navi-approach');
     const reads=localStorage.getItem('eigyo-navi-read-signals');
+    const savedMembers=localStorage.getItem('eigyo-navi-members');
+    const savedSettings=localStorage.getItem('eigyo-navi-settings');
     if(saved)setProduct({...initialProduct,...JSON.parse(saved)});
     if(list)setApproach(JSON.parse(list));
     if(reads)setReadSignals(JSON.parse(reads));
+    if(savedMembers)setMembers(JSON.parse(savedMembers));
+    if(savedSettings)setSettings({...initialSettings,...JSON.parse(savedSettings)});
   },[]);
   const notify=(message:string)=>{setToast(message);window.setTimeout(()=>setToast(''),2800)};
   const persistApproach=(next:Record<string,Stage>)=>{setApproach(next);localStorage.setItem('eigyo-navi-approach',JSON.stringify(next))};
@@ -47,6 +57,9 @@ export default function Home(){
   const saveProduct=()=>{localStorage.setItem('eigyo-navi-product',JSON.stringify(product));setProductOpen(false);notify('自社製品を登録しました。AI分析に反映されます')};
   const analyze=()=>{setLoading(true);window.setTimeout(()=>{setLoading(false);setView('prospects');setMinScore(0);notify('1,284社から有望企業を抽出しました')},850)};
   const markRead=(name:string)=>{const next=Array.from(new Set([...readSignals,name]));setReadSignals(next);localStorage.setItem('eigyo-navi-read-signals',JSON.stringify(next))};
+  const persistMembers=(next:Member[])=>{setMembers(next);localStorage.setItem('eigyo-navi-members',JSON.stringify(next))};
+  const inviteMember=()=>{if(!invite.name.trim()||!invite.email.includes('@')){notify('氏名と正しいメールアドレスを入力してください');return}persistMembers([...members,{id:Date.now(),...invite,status:'招待中'}]);setInvite({name:'',email:'',role:'メンバー'});notify('招待メールを送信しました')};
+  const saveSettings=()=>{localStorage.setItem('eigyo-navi-settings',JSON.stringify(settings));notify('設定を保存しました')};
 
   const filtered=useMemo(()=>companies.filter(c=>(industry==='すべて'||c.industry===industry)&&c.score>=minScore&&(view!=='search'||!search||[c.name,c.place,c.industry,c.signal].some(v=>v.includes(search)))),[industry,minScore,search,view]);
   const listed=companies.filter(c=>approach[c.name]);
@@ -63,8 +76,8 @@ export default function Home(){
         {nav.map(([id,icon,label])=><button key={id} className={view===id?'active':''} onClick={()=>setView(id)}><i>{icon}</i>{label}{id==='approach'&&listed.length>0?<em>{listed.length}</em>:id==='signals'&&unread>0?<em>{unread}</em>:null}</button>)}
         <p>管理</p>
         <button onClick={()=>setProductOpen(true)}><i>⌁</i>自社サービス</button>
-        <button onClick={()=>notify('チームメンバー3名が利用中です')}><i>♙</i>チーム</button>
-        <button onClick={()=>notify('設定を保存しました')}><i>⚙</i>設定</button>
+        <button className={view==='team'?'active':''} onClick={()=>setView('team')}><i>♙</i>チーム<em>{members.length}</em></button>
+        <button className={view==='settings'?'active':''} onClick={()=>setView('settings')}><i>⚙</i>設定</button>
       </nav>
       <div className="plan"><em>利用状況</em><b>企業分析 72%</b><span><i/></span><small>3,600 / 5,000社</small></div>
       <div className="user"><span>YK</span><div><b>山田 健太</b><small>営業部 マネージャー</small></div><strong>⋮</strong></div>
@@ -105,6 +118,18 @@ export default function Home(){
         </div>
         {listed.length===0?<div className="empty"><span>▤</span><h2>アプローチリストは空です</h2><p>有望企業を選び「リストに追加」すると、ここで進捗を管理できます。</p><button onClick={()=>setView('prospects')}>有望企業を見る →</button></div>:<div className="approachtable"><div className="tablehead"><span>企業</span><span>AIスコア</span><span>予想収益</span><span>ステータス</span><span>操作</span></div>{listed.map(c=><div className="tablerow" key={c.name}><button className="companylink" onClick={()=>{selectCompany(c.name);setView('prospects')}}><b>{c.name}</b><small>{c.place} · {c.signal}</small></button><strong>{c.score}</strong><span>{c.revenue}万円</span><select value={approach[c.name]} onChange={e=>persistApproach({...approach,[c.name]:e.target.value as Stage})}><option>未対応</option><option>連絡済み</option><option>商談化</option></select><button className="remove" onClick={()=>removeApproach(c.name)}>削除</button></div>)}</div>}
       </>}
+
+      {view==='team'&&<>
+        <div className="teamstats"><div><span>♙</span><p>チームメンバー<b>{members.length}名</b></p></div><div><span>◎</span><p>今週のアプローチ<b>{listed.length}件</b></p></div><div><span>↗</span><p>商談化<b>{listed.filter(c=>approach[c.name]==='商談化').length}件</b></p></div></div>
+        <section className="invitecard"><div><h2>メンバーを招待</h2><p>招待したメンバーは営業先とアプローチ状況を共有できます。</p></div><div className="inviteform"><input value={invite.name} onChange={e=>setInvite({...invite,name:e.target.value})} placeholder="氏名"/><input type="email" value={invite.email} onChange={e=>setInvite({...invite,email:e.target.value})} placeholder="メールアドレス"/><select value={invite.role} onChange={e=>setInvite({...invite,role:e.target.value as Member['role']})}><option>メンバー</option><option>管理者</option></select><button onClick={inviteMember}>招待する</button></div></section>
+        <section className="membercard"><header><h2>メンバー一覧</h2><span>{members.length}名</span></header><div className="memberhead"><span>メンバー</span><span>権限</span><span>ステータス</span><span>操作</span></div>{members.map((m,index)=><div className="memberrow" key={m.id}><div><span>{m.name.slice(0,1)}</span><p><b>{m.name}</b><small>{m.email}</small></p></div><select value={m.role} disabled={index===0} onChange={e=>persistMembers(members.map(x=>x.id===m.id?{...x,role:e.target.value as Member['role']}:x))}><option>管理者</option><option>メンバー</option></select><em className={m.status==='利用中'?'online':'pending'}>● {m.status}</em><button disabled={index===0} onClick={()=>persistMembers(members.filter(x=>x.id!==m.id))}>{index===0?'オーナー':'削除'}</button></div>)}</section>
+      </>}
+
+      {view==='settings'&&<div className="settingslayout">
+        <section className="settingscard"><header><span>⚡</span><div><h2>AI分析設定</h2><p>営業先の抽出条件と更新頻度を設定します。</p></div></header><div className="settingfields"><label><span>分析頻度</span><select value={settings.frequency} onChange={e=>setSettings({...settings,frequency:e.target.value})}><option>毎日 8:00</option><option>毎日 12:00</option><option>平日のみ 8:00</option><option>毎週月曜 8:00</option></select></label><label><span>有望企業の基準スコア</span><select value={settings.score} onChange={e=>setSettings({...settings,score:e.target.value})}><option value="70">70以上</option><option value="80">80以上</option><option value="85">85以上</option><option value="90">90以上</option></select></label><label><span>対象地域</span><select value={settings.region} onChange={e=>setSettings({...settings,region:e.target.value})}><option>全国</option><option>関東</option><option>関西</option><option>中部</option><option>その他</option></select></label></div></section>
+        <section className="settingscard"><header><span>♧</span><div><h2>通知設定</h2><p>営業シグナルを受け取る方法を選択します。</p></div></header><div className="togglelist">{([['emailSignals','重要シグナルをメールで通知','AIスコア90以上の新着企業をメールで受け取る'],['browserSignals','ブラウザ通知','新しい営業シグナルをリアルタイムで通知'],['dailyReport','デイリーレポート','毎朝、有望企業と進捗のまとめを受け取る'],['approachReminder','アプローチ期限リマインド','未対応の企業が3日以上残った場合に通知']] as const).map(([key,title,desc])=><label key={key}><div><b>{title}</b><small>{desc}</small></div><input type="checkbox" checked={settings[key]} onChange={e=>setSettings({...settings,[key]:e.target.checked})}/><i/></label>)}</div></section>
+        <div className="settingsactions"><small>変更内容はこの端末に保存されます</small><button onClick={saveSettings}>設定を保存</button></div>
+      </div>}
     </section>
 
     {productOpen&&<ProductModal product={product} setProduct={setProduct} onSave={saveProduct} onClose={()=>setProductOpen(false)}/>}

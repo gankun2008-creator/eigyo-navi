@@ -44,18 +44,6 @@ npm run dev
 
 ブラウザで `http://localhost:3000` を開いてください。
 
-## GitHubへの公開
-
-Ollamaモデル本体はGitに含まれません。GitHubへはソースコード、Docker定義、架空企業の初期データだけを登録します。
-
-```bash
-git init
-git add .
-git commit -m "Initial release"
-git branch -M main
-git remote add origin https://github.com/USER/REPOSITORY.git
-git push -u origin main
-```
 
 リポジトリを取得した利用者は `docker compose up --build` で起動できます。
 

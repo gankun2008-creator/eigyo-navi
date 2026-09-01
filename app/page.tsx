@@ -283,6 +283,14 @@ function IconExternalLink({ className }: { className?: string }) {
   );
 }
 
+function IconMenu({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
 const COMPANY_SCORE_RANGE = { min: 55, max: 95 };
 
 const DEFAULT_PRODUCTS: Product[] = [
@@ -341,6 +349,17 @@ const PIPELINE_COLUMNS = [
   },
 ];
 
+const NAV_ITEMS = [
+  { tab: 'home', label: 'ホーム', icon: IconHome },
+  { tab: 'ai-search', label: '営業候補を探す', icon: IconSearch },
+  { tab: 'sales-list', label: '営業リスト', icon: IconList },
+  { tab: 'dm-practice', label: '営業コミュニケーション', icon: IconFileEdit },
+  { tab: 'pipeline', label: 'アポ・案件管理', icon: IconCalendar },
+  { tab: 'lookalike', label: '類似企業分析', icon: IconBarChart },
+  { tab: 'companies', label: '企業データベース', icon: IconBuilding2 },
+  { tab: 'settings', label: '商材・除外設定', icon: IconSettingsGear },
+] as const;
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'home' | 'ai-search' | 'sales-list' | 'dm-practice' | 'pipeline' | 'lookalike' | 'companies' | 'settings'>('home');
   // 初回描画はサーバー・クライアントで必ず同じ既定値にする（Hydration不一致を防ぐため、
@@ -358,6 +377,7 @@ export default function Home() {
   const [selectedCandidateId, setSelectedCandidateId] = useState('');
   const [showConditionsPanel, setShowConditionsPanel] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const aiPanelInputRef = useRef<HTMLTextAreaElement>(null);
   const [searchConditions, setSearchConditions] = useState({ industry: 'all', prefecture: 'all', minEmployees: 0, maxEmployees: 0, minScore: 70, demandSignal: '', limit: 10 });
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
@@ -988,7 +1008,7 @@ export default function Home() {
     .sort((a, b) => b.salesScore - a.salesScore);
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden relative ${activeTab === 'home' || activeTab === 'ai-search' || activeTab === 'sales-list' || activeTab === 'dm-practice' || activeTab === 'pipeline' || activeTab === 'lookalike' || activeTab === 'companies' || activeTab === 'settings' ? 'bg-[#eef1f7] text-[#161c2c]' : 'bg-slate-900 text-slate-100'}`}>
+    <div className={`flex flex-col md:flex-row h-screen font-sans overflow-hidden relative ${activeTab === 'home' || activeTab === 'ai-search' || activeTab === 'sales-list' || activeTab === 'dm-practice' || activeTab === 'pipeline' || activeTab === 'lookalike' || activeTab === 'companies' || activeTab === 'settings' ? 'bg-[#eef1f7] text-[#161c2c]' : 'bg-slate-900 text-slate-100'}`}>
 
       {/* ────────────────────────────────────────────────────────
           リアルタイム需要シグナルアラート（画面上部）
@@ -1019,9 +1039,97 @@ export default function Home() {
       )}
 
       {/* ────────────────────────────────────────────────────────
-          1. 左側：サイドバー
+          モバイル：上部固定ヘッダー（PCでは非表示）
       ──────────────────────────────────────────────────────── */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-4 flex-shrink-0 text-[#161c2c]">
+      <header className="md:hidden flex items-center justify-between gap-2 h-14 px-4 bg-white border-b border-slate-200 flex-shrink-0 sticky top-0 z-30 text-[#161c2c]">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600 shrink-0">
+            <IconCompass className="w-4.5 h-4.5" />
+          </span>
+          <h1 className="text-base font-bold tracking-tight truncate">
+            営業ナビ <span className="text-blue-600">AI</span>
+          </h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen(true)}
+          aria-label="メニューを開く"
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="mobile-nav-menu"
+          className="shrink-0 flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        >
+          <IconMenu className="w-5 h-5" />
+        </button>
+      </header>
+
+      {/* ────────────────────────────────────────────────────────
+          モバイル：オーバーレイ＋左からのメニュー（PCでは非表示）
+      ──────────────────────────────────────────────────────── */}
+      {isMobileMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-slate-900/40"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        id="mobile-nav-menu"
+        className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[80vw] bg-white border-r border-slate-200 flex flex-col justify-between p-4 text-[#161c2c] shadow-xl overflow-y-auto transition-transform duration-200 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-2 px-2 pt-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600 shrink-0">
+                <IconCompass className="w-4.5 h-4.5" />
+              </span>
+              <h1 className="text-lg font-bold tracking-tight truncate">
+                営業ナビ <span className="text-blue-600">AI</span>
+              </h1>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(false)}
+              aria-label="メニューを閉じる"
+              className="shrink-0 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-md p-1"
+            >
+              ✕
+            </button>
+          </div>
+
+          <nav className="space-y-0.5">
+            {NAV_ITEMS.map(item => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.tab;
+              return (
+                <button
+                  key={item.tab}
+                  onClick={() => { setActiveTab(item.tab); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                    isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className="w-4.5 h-4.5 shrink-0" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="border-t border-slate-200 pt-3 text-xs space-y-1">
+          <div className="text-slate-500">スタンダードプラン</div>
+          <div className="text-[#161c2c] font-semibold">10 ID利用中</div>
+          <div className="text-slate-500">月額50,000円から</div>
+          <span className="inline-flex items-center gap-1 text-blue-600 font-medium pt-0.5">
+            プランを変更する <IconExternalLink className="w-3 h-3" />
+          </span>
+        </div>
+      </aside>
+
+      {/* ────────────────────────────────────────────────────────
+          1. 左側：サイドバー（PCのみ表示）
+      ──────────────────────────────────────────────────────── */}
+      <aside className="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col justify-between p-4 flex-shrink-0 text-[#161c2c]">
         <div className="space-y-6">
           <div className="flex items-center gap-2 px-2 pt-1">
             <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600">
@@ -1033,16 +1141,7 @@ export default function Home() {
           </div>
 
           <nav className="space-y-0.5">
-            {([
-              { tab: 'home', label: 'ホーム', icon: IconHome },
-              { tab: 'ai-search', label: '営業候補を探す', icon: IconSearch },
-              { tab: 'sales-list', label: '営業リスト', icon: IconList },
-              { tab: 'dm-practice', label: '営業コミュニケーション', icon: IconFileEdit },
-              { tab: 'pipeline', label: 'アポ・案件管理', icon: IconCalendar },
-              { tab: 'lookalike', label: '類似企業分析', icon: IconBarChart },
-              { tab: 'companies', label: '企業データベース', icon: IconBuilding2 },
-              { tab: 'settings', label: '商材・除外設定', icon: IconSettingsGear },
-            ] as const).map(item => {
+            {NAV_ITEMS.map(item => {
               const Icon = item.icon;
               const isActive = activeTab === item.tab;
               return (
@@ -1074,7 +1173,7 @@ export default function Home() {
       {/* ────────────────────────────────────────────────────────
           2. 右側：メインコンテンツ
       ──────────────────────────────────────────────────────── */}
-      <main className={`flex-1 p-8 ${isAiPanelOpen || (selectedPipelineLead && activeTab === 'pipeline') ? 'overflow-hidden' : 'overflow-y-auto'} ${activeTab === 'home' || activeTab === 'ai-search' || activeTab === 'sales-list' || activeTab === 'dm-practice' || activeTab === 'pipeline' || activeTab === 'lookalike' || activeTab === 'companies' || activeTab === 'settings' ? 'bg-[#eef1f7]' : 'bg-slate-900'}`}>
+      <main className={`flex-1 min-h-0 min-w-0 p-4 md:p-8 ${isAiPanelOpen || (selectedPipelineLead && activeTab === 'pipeline') ? 'overflow-hidden' : 'overflow-y-auto'} ${activeTab === 'home' || activeTab === 'ai-search' || activeTab === 'sales-list' || activeTab === 'dm-practice' || activeTab === 'pipeline' || activeTab === 'lookalike' || activeTab === 'companies' || activeTab === 'settings' ? 'bg-[#eef1f7]' : 'bg-slate-900'}`}>
         <div className="max-w-5xl mx-auto">
           
           {/* TAB 1: ホーム */}

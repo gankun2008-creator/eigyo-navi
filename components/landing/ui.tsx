@@ -49,8 +49,16 @@ export function CTAButton({
       ? 'bg-[#1F5EFF] text-white shadow-[0_8px_24px_-8px_rgba(31,94,255,0.45)] hover:-translate-y-[2px] hover:bg-[#154fe0] hover:shadow-[0_14px_34px_-10px_rgba(31,94,255,0.55)]'
       : 'border border-[#DCE5F2] bg-white text-[#0B1833] hover:-translate-y-[1px] hover:border-[#8FB4FF] hover:bg-[#EAF2FF] hover:text-[#154fe0]';
 
-  return (
-    <Link href={href} aria-label={ariaLabel} className={`${base} ${styles} ${className}`}>
+  // In-page fragment links stay plain anchors instead of next/link: the App Router
+  // treats a click whose href already equals the current URL as a no-op, so once
+  // `#pricing` sits in the URL a second click never scrolls back to the section.
+  // A native anchor re-runs fragment navigation on every click. The header and
+  // footer nav links are plain anchors for the same reason.
+  const isFragmentLink = href.startsWith('#') || href.startsWith('/#');
+  const classes = `${base} ${styles} ${className}`;
+
+  const inner = (
+    <>
       <span>{children}</span>
       {showArrow && (
         <svg
@@ -66,6 +74,20 @@ export function CTAButton({
           <path d="M4 10h12M11 5l5 5-5 5" />
         </svg>
       )}
+    </>
+  );
+
+  if (isFragmentLink) {
+    return (
+      <a href={href} aria-label={ariaLabel} className={classes}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} aria-label={ariaLabel} className={classes}>
+      {inner}
     </Link>
   );
 }

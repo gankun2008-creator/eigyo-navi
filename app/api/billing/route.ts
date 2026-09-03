@@ -1,0 +1,25 @@
+import {DatabaseSync} from 'node:sqlite';
+import {join} from 'node:path';
+import {NextResponse} from 'next/server';
+
+const dbPath=join(process.env.DATA_DIR??join(process.cwd(),'data'),'companies.sqlite');
+const MONTHLY_PRICE=4000,MONTHLY_TICKETS=100,TRIAL_MONTHS=3,DISCOUNT_MONTHS=6;
+const clean=(v:unknown,n=100)=>String(v??'').trim().slice(0,n);
+const addMonths=(date:Date,months:number)=>{const d=new Date(date);d.setUTCMonth(d.getUTCMonth()+months);return d};
+const nextMonth=(date:Date)=>new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,1));
+const periodKey=(date:Date,start:Date)=>Math.max(0,Math.min(TRIAL_MONTHS-1,Math.floor((date.getTime()-start.getTime())/(30*86400000))));
+
+function openDb(){const db=new DatabaseSync(dbPath);db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS companies_id_unique ON companies(id);
+ CREATE TABLE IF NOT EXISTS subscriptions(companyId TEXT PRIMARY KEY,status TEXT NOT NULL,trialStart TEXT NOT NULL,trialEnd TEXT NOT NULL,ticketPeriod INTEGER NOT NULL DEFAULT 0,ticketsRemaining INTEGER NOT NULL DEFAULT 100,contractedAt TEXT,billingStart TEXT,discountMonthlyYen INTEGER NOT NULL DEFAULT 0,discountMonthsRemaining INTEGER NOT NULL DEFAULT 0,createdAt TEXT NOT NULL,updatedAt TEXT NOT NULL,FOREIGN KEY(companyId) REFERENCES companies(id) ON DELETE CASCADE);`);return db}
+function refresh(db:DatabaseSync,companyId:string,now:Date){const row=db.prepare('SELECT * FROM subscriptions WHERE companyId=?').get(companyId) as Record<string,unknown>|undefined;if(!row)return;const start=new Date(String(row.trialStart)),current=periodKey(now,start);if(row.status==='trial'&&current>Number(row.ticketPeriod)&&now<new Date(String(row.trialEnd)))db.prepare('UPDATE subscriptions SET ticketPeriod=?,ticketsRemaining=?,updatedAt=? WHERE companyId=?').run(current,MONTHLY_TICKETS,now.toISOString(),companyId);if(row.status==='trial'&&now>=new Date(String(row.trialEnd)))db.prepare("UPDATE subscriptions SET status='trial_expired',ticketsRemaining=0,updatedAt=? WHERE companyId=?").run(now.toISOString(),companyId)}
+
+export async function GET(request:Request){const companyId=clean(new URL(request.url).searchParams.get('companyId')),db=openDb();try{if(companyId)refresh(db,companyId,new Date());const subscriptions=db.prepare(`SELECT s.*,c.companyName FROM subscriptions s JOIN companies c ON c.id=s.companyId ORDER BY s.updatedAt DESC`).all();return NextResponse.json({subscriptions,policy:{monthlyPriceYen:MONTHLY_PRICE,monthlyTickets:MONTHLY_TICKETS,trialMonths:TRIAL_MONTHS,discountMonths:DISCOUNT_MONTHS}})}finally{db.close()}}
+
+export async function POST(request:Request){const b=await request.json(),companyId=clean(b.companyId),now=new Date(),db=openDb();try{
+ if(!db.prepare('SELECT id FROM companies WHERE id=?').get(companyId))return NextResponse.json({error:'企業が見つかりません'},{status:404});
+ if(b.action==='start-trial'){if(db.prepare('SELECT companyId FROM subscriptions WHERE companyId=?').get(companyId))return NextResponse.json({error:'この企業はトライアルを利用済みです'},{status:409});const end=addMonths(now,TRIAL_MONTHS);db.prepare('INSERT INTO subscriptions VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(companyId,'trial',now.toISOString(),end.toISOString(),0,MONTHLY_TICKETS,null,null,0,0,now.toISOString(),now.toISOString());
+ }else if(b.action==='contract'){refresh(db,companyId,now);const row=db.prepare('SELECT * FROM subscriptions WHERE companyId=?').get(companyId) as Record<string,unknown>|undefined;if(!row)return NextResponse.json({error:'先に無料トライアルを開始してください'},{status:400});if(row.status==='active')return NextResponse.json({error:'本契約済みです'},{status:409});const trialEnd=new Date(String(row.trialEnd)),trialStart=new Date(String(row.trialStart));const total=Math.max(1,trialEnd.getTime()-trialStart.getTime()),remaining=Math.max(0,trialEnd.getTime()-now.getTime());const remainingTrialValue=Math.round(MONTHLY_PRICE*TRIAL_MONTHS*(remaining/total));const monthlyDiscount=Math.round(remainingTrialValue/DISCOUNT_MONTHS);db.prepare(`UPDATE subscriptions SET status='contracted_pending',contractedAt=?,billingStart=?,discountMonthlyYen=?,discountMonthsRemaining=?,updatedAt=? WHERE companyId=?`).run(now.toISOString(),nextMonth(now).toISOString(),monthlyDiscount,monthlyDiscount?DISCOUNT_MONTHS:0,now.toISOString(),companyId);
+ }else if(b.action==='consume'){refresh(db,companyId,now);const amount=Math.max(1,Math.min(100,Number(b.amount)||1));const row=db.prepare('SELECT status,ticketsRemaining FROM subscriptions WHERE companyId=?').get(companyId) as {status:string;ticketsRemaining:number}|undefined;if(!row||!['trial','contracted_pending','active'].includes(row.status))return NextResponse.json({error:'利用可能な契約がありません'},{status:403});if(row.ticketsRemaining<amount)return NextResponse.json({error:'今月のチケットが不足しています'},{status:429});db.prepare('UPDATE subscriptions SET ticketsRemaining=ticketsRemaining-?,updatedAt=? WHERE companyId=?').run(amount,now.toISOString(),companyId);
+ }else return NextResponse.json({error:'操作が不正です'},{status:400});
+ refresh(db,companyId,now);return NextResponse.json({ok:true,subscription:db.prepare('SELECT * FROM subscriptions WHERE companyId=?').get(companyId)});
+ }finally{db.close()}}

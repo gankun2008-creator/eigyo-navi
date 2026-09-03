@@ -3,7 +3,7 @@ import {join} from 'node:path';
 import {NextResponse} from 'next/server';
 
 const dbPath=join(process.env.DATA_DIR??join(process.cwd(),'data'),'companies.sqlite');
-const MONTHLY_PRICE=4000,MONTHLY_TICKETS=100,TRIAL_MONTHS=3,DISCOUNT_MONTHS=6;
+const MONTHLY_PRICE=5000,MONTHLY_TICKETS=100,TRIAL_MONTHS=3,DISCOUNT_MONTHS=6;
 const clean=(v:unknown,n=100)=>String(v??'').trim().slice(0,n);
 const addMonths=(date:Date,months:number)=>{const d=new Date(date);d.setUTCMonth(d.getUTCMonth()+months);return d};
 const nextMonth=(date:Date)=>new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,1));

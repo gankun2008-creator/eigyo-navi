@@ -24,3 +24,157 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+#pricing,
+#core-value,
+#voices,
+#company {
+  scroll-margin-top: 84px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+:root {
+  /* Overwritten precisely by LandingHeader once mounted; this is only the
+     first-paint fallback so the hero never reserves the wrong height. */
+  --header-height: 72px;
+}
+
+.hero-fullbleed {
+  min-height: calc(100vh - var(--header-height));
+  min-height: calc(100svh - var(--header-height));
+}
+
+@keyframes hero-image-in {
+  from {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.hero-image-intro {
+  animation: hero-image-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-image-intro {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Whole-section directional slide (see SectionReveal.tsx / useSectionPhase.ts).
+   `data-phase` is a plain before/active/after state set from two shared
+   IntersectionObservers — no continuous scroll math, no sticky, no extra scroll
+   track. The default (no data-phase, or "active") rendering is the fully-settled,
+   at-rest look, so first paint/SSR/no-JS always shows fully readable content. */
+.section-slide {
+  --slide-dist: clamp(22px, 4.2vw, 68px);
+  transition:
+    transform 650ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 650ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translate3d(0, 0, 0) scale(1);
+  opacity: 1;
+}
+
+.slide-left {
+  --slide-x: calc(var(--slide-dist) * -1);
+}
+
+.slide-right {
+  --slide-x: var(--slide-dist);
+}
+
+.slide-bottom {
+  --slide-y: var(--slide-dist);
+}
+
+/* Opt-in shorter travel distance for a section that should slide in as a brief accent
+   rather than a full traversal (e.g. TrialBenefit, right after Pricing). Same mechanism
+   as the base `--slide-dist`, just a smaller value — relies on source order (this rule
+   after `.section-slide`'s) since both are unlayered single-class selectors. */
+.slide-short {
+  --slide-dist: clamp(14px, 2.4vw, 40px);
+}
+
+.section-slide[data-phase='before'] {
+  opacity: 0.6;
+  transform: translate3d(var(--slide-x, 0px), var(--slide-y, 0px), 0) scale(0.97);
+}
+
+.section-slide[data-phase='after'] {
+  opacity: 0.8;
+  transform: translate3d(calc(var(--slide-x, 0px) * -0.4), calc(var(--slide-y, 0px) * -0.4), 0) scale(0.985);
+}
+
+/* Card / number / bubble accents key off the ancestor section's data-phase — a plain
+   descendant selector, no custom-property plumbing and no separate observer — so they
+   pop in a little after the section itself starts sliding (transition-delay) instead
+   of everything moving in lockstep. Only "before" needs styling; once the section
+   reaches active/after these simply sit at rest. */
+.card-pop {
+  transition:
+    transform 500ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
+    opacity 500ms ease-out 120ms;
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+[data-phase='before'] .card-pop {
+  transform: translateY(16px) scale(0.96);
+  opacity: 0.6;
+}
+
+.number-pop {
+  transition:
+    transform 550ms cubic-bezier(0.22, 1, 0.36, 1) 80ms,
+    filter 550ms ease-out 80ms;
+  transform: scale(1);
+  filter: blur(0);
+}
+
+[data-phase='before'] .number-pop {
+  transform: scale(0.92);
+  filter: blur(1px);
+}
+
+/* Voices' speech-bubble previews get their own feel instead of the generic card pop:
+   a touch more vertical travel plus a hairline rotation (<=1deg) that settles flat
+   once active — never a constant "float". */
+.bubble-pop {
+  transition:
+    transform 550ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 550ms ease-out;
+  transform: translateY(0) rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+[data-phase='before'] .bubble-pop {
+  transform: translateY(18px) rotate(var(--bubble-rot, 0deg)) scale(0.95);
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-slide,
+  .card-pop,
+  .number-pop,
+  .bubble-pop {
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+}

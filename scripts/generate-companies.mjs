@@ -55,6 +55,16 @@ const industryProfiles = {
   other_services: ['機器修理・保守','会員制サービス運営','地域生活支援','サービス企画部'],
 };
 const signals = ['新拠点の開設計画','設備更新予算の増額','DX推進組織の新設','人員採用の拡大','省エネ投資の開始','安全管理方針の強化','既存施設の改修','新サービスの発表','業務提携の締結','事業エリアの拡大'];
+const challengeNeeds = [
+  ['設備・施設','設備の老朽化と保守負担を減らしたい','既存設備の故障と保守工数が増えており、更新計画と運用改善を一緒に提案できる企業を探しています。'],
+  ['DX・IT','手作業と紙中心の業務をデジタル化したい','部門間の情報共有が手作業になっているため、現場へ定着しやすい業務システムの提案を募集しています。'],
+  ['人材・労務','採用後の教育と定着を改善したい','人員拡大に対して教育担当者が不足しており、研修の標準化と定着支援を相談したいです。'],
+  ['コスト削減','エネルギー・運用費を削減したい','拠点運営費が増加しているため、効果を測定できる省エネ・コスト削減策を求めています。'],
+  ['安全・品質','現場の安全管理と品質記録を強化したい','点検記録と事故予防の仕組みを見直しており、導入負担の小さい安全管理提案を受け付けています。'],
+  ['営業・顧客管理','問い合わせと顧客対応を効率化したい','問い合わせ情報が複数部署に分散しており、対応状況を一元管理できる仕組みを探しています。'],
+  ['物流・在庫','在庫差異と配送負担を減らしたい','在庫状況の把握に時間がかかっており、入出庫と配送計画を改善する提案を募集しています。'],
+  ['事業開発','新サービスの販売パートナーを探したい','新サービスの提供地域を広げるため、共同提案や販売連携が可能な企業を探しています。'],
+];
 
 const companies = [];
 for (let industryIndex = 0; industryIndex < industries.length; industryIndex++) {
@@ -70,6 +80,7 @@ for (let industryIndex = 0; industryIndex < industries.length; industryIndex++) 
     const corporateSuffix = corporateSuffixes[(n - 1) % corporateSuffixes.length];
     const companyName = `${legalForms[seed % 2]}${brandPrefix}${industryStem}${corporateSuffix}`;
     const signal = signals[(seed * 3) % signals.length];
+    const [challengeCategory, challengeTitle, challengeDetail] = challengeNeeds[(seed * 5) % challengeNeeds.length];
     companies.push({
       id: `FC-${String(seed).padStart(5, '0')}`,
       companyName,
@@ -81,8 +92,14 @@ for (let industryIndex = 0; industryIndex < industries.length; industryIndex++) 
       employees, scale: scale.label, revenueMillionYen,
       businessDescription: profile[(n - 1) % 3],
       website: `https://example.invalid/${industryCode}/${String(n).padStart(3, '0')}`,
-      demandSignal: signal,
-      demandSignalDetail: `${signal}に伴い、施設・業務設備および運用体制を見直している可能性があります。`,
+      demandSignal: challengeTitle,
+      demandSignalDetail: challengeDetail,
+      registeredActivity: signal,
+      challengeTitle,
+      challengeDetail,
+      challengeCategory,
+      challengeUrgency: ['低','中','高'][(seed * 7) % 3],
+      seekingProposals: true,
       targetDepartment: profile[3],
       targetRole: ['部長','課長','責任者','企画担当'][(seed + 1) % 4],
       salesScore: 55 + ((seed * 17) % 45),
@@ -111,12 +128,26 @@ await writeFile(join(outDir, 'companies.csv'), csv, 'utf8');
 const dbPath = join(outDir, 'companies.sqlite');
 const db = new DatabaseSync(dbPath);
 db.exec('DROP TABLE IF EXISTS companies');
-db.exec(`CREATE TABLE companies (${columns.map(key => `${key} ${['employees','establishedYear','revenueMillionYen','salesScore'].includes(key) ? 'INTEGER' : ['fictional','existingCustomer'].includes(key) ? 'INTEGER' : 'TEXT'}`).join(', ')})`);
+db.exec(`CREATE TABLE companies (${columns.map(key => `${key} ${['employees','establishedYear','revenueMillionYen','salesScore'].includes(key) ? 'INTEGER' : ['fictional','existingCustomer','seekingProposals'].includes(key) ? 'INTEGER' : 'TEXT'}`).join(', ')})`);
 db.exec('CREATE INDEX idx_companies_industry ON companies(industryCode)');
 db.exec('CREATE INDEX idx_companies_score ON companies(salesScore DESC)');
+db.exec('CREATE UNIQUE INDEX companies_id_unique ON companies(id)');
 const insert = db.prepare(`INSERT INTO companies (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`);
 db.exec('BEGIN');
 for (const company of companies) insert.run(...columns.map(key => typeof company[key] === 'boolean' ? Number(company[key]) : company[key]));
+db.exec('COMMIT');
+db.exec(`CREATE TABLE IF NOT EXISTS network_members(companyId TEXT PRIMARY KEY,offerSummary TEXT NOT NULL DEFAULT '',profile TEXT NOT NULL DEFAULT '',joinedAt TEXT NOT NULL,lastActiveAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS company_challenges(id TEXT PRIMARY KEY,companyId TEXT NOT NULL,title TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',category TEXT NOT NULL,urgency TEXT NOT NULL,source TEXT NOT NULL,contactIntent TEXT NOT NULL,createdAt TEXT NOT NULL,updatedAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS member_accounts(id TEXT PRIMARY KEY,companyId TEXT NOT NULL,name TEXT NOT NULL,jobTitle TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT '対応可能',internalEmail TEXT NOT NULL DEFAULT '',phone TEXT NOT NULL DEFAULT '',iconDataUrl TEXT NOT NULL DEFAULT '',createdAt TEXT NOT NULL,updatedAt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS network_messages(id TEXT PRIMARY KEY,senderCompanyId TEXT NOT NULL,recipientCompanyId TEXT NOT NULL,body TEXT NOT NULL,createdAt TEXT NOT NULL,readAt TEXT,senderAccountId TEXT,recipientAccountId TEXT);
+CREATE TABLE IF NOT EXISTS account_sessions(token TEXT PRIMARY KEY,accountId TEXT NOT NULL,createdAt TEXT NOT NULL,expiresAt TEXT NOT NULL);`);
+db.exec('DELETE FROM network_messages; DELETE FROM company_challenges; DELETE FROM member_accounts; DELETE FROM network_members; DELETE FROM account_sessions;');
+const addMember=db.prepare('INSERT INTO network_members VALUES(?,?,?,?,?)');
+const addChallenge=db.prepare('INSERT INTO company_challenges VALUES(?,?,?,?,?,?,?,?,?,?)');
+const addAccount=db.prepare('INSERT INTO member_accounts VALUES(?,?,?,?,?,?,?,?,?,?)');
+db.exec('BEGIN');
+for(const company of companies){addMember.run(company.id,company.businessDescription,company.businessDescription,company.createdAt,company.createdAt);addChallenge.run(`challenge-${company.id}`,company.id,company.challengeTitle,company.challengeDetail,company.challengeCategory,company.challengeUrgency,'企業による直接登録','営業提案を受付中',company.createdAt,company.createdAt);addAccount.run(`account-inbox-${company.id}`,company.id,'企業窓口','営業受付担当','対応可能','','','',company.createdAt,company.createdAt)}
+for(let index=0;index<3;index++){const company=companies[index];addAccount.run(`account-demo-${index+1}`,company.id,['山田 太郎','佐藤 花子','鈴木 健'][index],['営業部長','営業担当','事業開発担当'][index],index===2?'離席中':'対応可能',`member${index+1}@example.jp`,`03-0000-000${index+1}`,'',company.createdAt,company.createdAt)}
 db.exec('COMMIT');
 db.close();
 

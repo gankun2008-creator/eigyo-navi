@@ -470,7 +470,10 @@ export default function Home() {
   useEffect(() => {
     try {
       const savedProducts = window.localStorage.getItem('eigyo-navi-products');
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
+      if (savedProducts) {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed)) setProducts(parsed);
+      }
     } catch {
       // 保存データが壊れている場合は既定値のまま
     }
@@ -642,15 +645,23 @@ export default function Home() {
   };
 
   const handleSaveProduct = () => {
-    if (!productForm.name.trim() || !productForm.category.trim()) {
+    const normalizedForm = {
+      name: productForm.name.trim(),
+      category: productForm.category.trim(),
+      description: productForm.description.trim(),
+      targetIndustries: productForm.targetIndustries.trim() || '全業界',
+    };
+    if (!normalizedForm.name || !normalizedForm.category) {
       showToast('商品名とカテゴリーを入力してください');
       return;
     }
     if (editingProductId) {
-      setProducts(current => current.map(product => product.id === editingProductId ? { ...product, ...productForm } : product));
+      setProducts(current => current.map(product => product.id === editingProductId ? { ...product, ...normalizedForm } : product));
+      if (products.find(product => product.id === editingProductId)?.name === productName) setProductName(normalizedForm.name);
       showToast('商品情報を更新しました');
     } else {
-      const product: Product = { id: crypto.randomUUID(), ...productForm, active: true };
+      const productId = globalThis.crypto?.randomUUID?.() ?? `product-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const product: Product = { id: productId, ...normalizedForm, active: true };
       setProducts(current => [...current, product]);
       setProductName(product.name);
       showToast(`${product.name} を登録しました`);
